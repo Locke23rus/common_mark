@@ -70,13 +70,29 @@ module CommonMark
       end
     end
 
+    class CodeBlock
+      property content
+      property children
+      property fenced
+      getter fence_char
+
+      def initialize(line, @fenced = false)
+        if fenced
+          @fence_char = line[0]
+          @content = line[3..-1]
+        else
+          @content = line.strip
+        end
+      end
+    end
+
     class Document
       property content
       property children
 
       def initialize
         @content = ""
-        @children = [] of Header | Paragraph | Hrule
+        @children = [] of Header | Paragraph | Hrule | CodeBlock
       end
     end
   end
@@ -84,6 +100,8 @@ module CommonMark
   class Parser
     RE_ATX_HEADER = /\s{0,3}\#{1,6}\s/
     RE_HRULE = /^(?:(?:\* *){3,}|(?:_ *){3,}|(?:- *){3,}) *$/
+    RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
+    RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
 
     def initialize(text)
       @root = Node::Document.new
@@ -104,10 +122,26 @@ module CommonMark
         @current = node
         @line += 1
 
-      # TODO: Fenced code block
+      # Fenced code block
+      elsif RE_START_CODE_FENCE =~ line
+        node = Node::CodeBlock.new line, true
+        @root.children << node
+        @current = node
+        @line += 1
+
+        while @line < @lines.length &&
+            !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
+                @lines[@line][0] == node.fence_char)
+
+          add_line
+          @line += 1
+        end
+        @line += 1
+
       # TODO: HTML block
       # TODO: Setext header
 
+      # Horizonal rule
       elsif RE_HRULE =~ line
         node = Node::Hrule.new
         @root.children << node
@@ -142,7 +176,7 @@ module CommonMark
 
     def accepts_line?
       case @current
-      when Node::Paragraph
+      when Node::Paragraph, Node::CodeBlock
         true
       else
         false

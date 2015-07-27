@@ -1,3 +1,5 @@
+require "html"
+
 class CommonMark::HTMLRenderer
 
   def render(document)
@@ -14,12 +16,16 @@ class CommonMark::HTMLRenderer
   end
 
   def render_node(io, node : CommonMark::Node::Paragraph)
-    io << "<p>"
-    io << node.content
-    io << "</p>\n"
+    io << "<p>#{node.content}</p>\n"
   end
 
   def render_node(io, node : CommonMark::Node::Hrule)
     io << "<hr />\n"
+  end
+
+  def render_node(io, node : CommonMark::Node::CodeBlock)
+    io << "<pre><code>"
+    io << HTML.escape node.content.strip
+    io << "\n</code></pre>"
   end
 end
