@@ -18,4 +18,8 @@ class CommonMark::HTMLRenderer
     io << node.content
     io << "</p>\n"
   end
+
+  def render_node(io, node : CommonMark::Node::Hrule)
+    io << "<hr />\n"
+  end
 end

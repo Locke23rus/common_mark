@@ -61,18 +61,30 @@ module CommonMark
       end
     end
 
+    class Hrule
+      property content
+      property children
+
+      def initialize
+        @content = ""
+      end
+    end
+
     class Document
       property content
       property children
 
       def initialize
         @content = ""
-        @children = [] of Header | Paragraph
+        @children = [] of Header | Paragraph | Hrule
       end
     end
   end
 
   class Parser
+    RE_ATX_HEADER = /\s{0,3}\#{1,6}\s/
+    RE_HRULE = /^(?:(?:\* *){3,}|(?:_ *){3,}|(?:- *){3,}) *$/
+
     def initialize(text)
       @root = Node::Document.new
       @current = @root
@@ -83,14 +95,30 @@ module CommonMark
     def process_line
       line = @lines[@line]
 
-      # if line.starts_with?('#')
-      if /\s{0,3}\#{1,6}\s/ =~ line
+      # TODO: block quote
+
+      # ATX header
+      if RE_ATX_HEADER =~ line
         node = Node::Header.new line
         @root.children << node
         @current = node
         @line += 1
-      elsif @current.is_a?(Node::Paragraph)
-        @current.content += "\n#{line}"
+
+      # TODO: Fenced code block
+      # TODO: HTML block
+      # TODO: Setext header
+
+      elsif RE_HRULE =~ line
+        node = Node::Hrule.new
+        @root.children << node
+        @current = node
+        @line += 1
+
+      # TODO: list item
+      # TODO: indented code block
+
+      elsif accepts_line?
+        add_line
         @line += 1
       else
         node = Node::Paragraph.new line
@@ -106,6 +134,19 @@ module CommonMark
       end
 
       @root
+    end
+
+    def add_line
+      @current.content += "\n#{@lines[@line]}"
+    end
+
+    def accepts_line?
+      case @current
+      when Node::Paragraph
+        true
+      else
+        false
+      end
     end
   end
 end
