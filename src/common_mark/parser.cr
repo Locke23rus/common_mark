@@ -124,19 +124,7 @@ module CommonMark
 
       # Fenced code block
       elsif RE_START_CODE_FENCE =~ line
-        node = Node::CodeBlock.new line, true
-        @root.children << node
-        @current = node
-        @line += 1
-
-        while @line < @lines.length &&
-            !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
-                @lines[@line][0] == node.fence_char)
-
-          add_line
-          @line += 1
-        end
-        @line += 1
+        process_fenced_code_block
 
       # TODO: HTML block
       # TODO: Setext header
@@ -162,11 +150,26 @@ module CommonMark
       end
     end
 
+    def process_fenced_code_block
+      node = Node::CodeBlock.new @lines[@line], true
+      @root.children << node
+      @current = node
+      @line += 1
+
+      while @line < @lines.length &&
+        !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
+         @lines[@line].length > 0 && @lines[@line][0] == node.fence_char)
+
+        add_line
+        @line += 1
+      end
+      @line += 1
+    end
+
     def parse
       while @line < @lines.length
         process_line
       end
-
       @root
     end
 
