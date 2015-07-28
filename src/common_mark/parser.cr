@@ -128,7 +128,7 @@ module CommonMark
 
   class Parser
     RE_ATX_HEADER = /\s{0,3}\#{1,6}\s/
-    RE_HRULE = /^(?:(?:\* *){3,}|(?:_ *){3,}|(?:- *){3,}) *$/
+    RE_HRULE = /^[ ]{0,3}((([*][ ]*){3,})|(([-][ ]*){3,})|([_][ ]*){3,})[ \t]*$/
     RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
     RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
 
