@@ -70,19 +70,18 @@ module CommonMark
       end
     end
 
-    class CodeBlock
+    class FencedCodeBlock
       property content
       property children
-      property fenced
       getter fence_char
 
-      def initialize(line, @fenced = false)
-        if fenced
-          @fence_char = line[0]
-          @content = line[3..-1]
-        else
-          @content = line.strip
-        end
+      def initialize(line)
+        @fence_char = line.lstrip[0]
+        @content = ""
+      end
+
+      def add_line(line)
+        @content += "#{line.rstrip}\n"
       end
     end
 
@@ -122,7 +121,7 @@ module CommonMark
 
       def initialize
         @content = ""
-        @children = [] of Header | Paragraph | Hrule | CodeBlock | IndentedCodeBlock
+        @children = [] of Header | Paragraph | Hrule | FencedCodeBlock | IndentedCodeBlock
       end
     end
   end
@@ -186,7 +185,7 @@ module CommonMark
     end
 
     def process_fenced_code_block
-      node = Node::CodeBlock.new @lines[@line], true
+      node = Node::FencedCodeBlock.new @lines[@line]
       @root.children << node
       @current = node
       @line += 1
@@ -195,7 +194,7 @@ module CommonMark
         !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
          @lines[@line].length > 0 && @lines[@line][0] == node.fence_char)
 
-        add_line
+        node.add_line @lines[@line]
         @line += 1
       end
       @line += 1
@@ -227,7 +226,7 @@ module CommonMark
 
     def accepts_line?
       case @current
-      when Node::Paragraph, Node::CodeBlock
+      when Node::Paragraph
         true
       else
         false

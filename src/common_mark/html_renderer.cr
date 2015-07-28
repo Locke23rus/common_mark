@@ -23,13 +23,7 @@ class CommonMark::HTMLRenderer
     io << "<hr />\n"
   end
 
-  def render_node(io, node : CommonMark::Node::CodeBlock)
-    io << "<pre><code>"
-    io << HTML.escape node.content.strip
-    io << "\n</code></pre>"
-  end
-
-  def render_node(io, node : CommonMark::Node::IndentedCodeBlock)
+  def render_node(io, node : CommonMark::Node::FencedCodeBlock | CommonMark::Node::IndentedCodeBlock)
     io << "<pre><code>"
     io << HTML.escape node.content
     io << "</code></pre>"
