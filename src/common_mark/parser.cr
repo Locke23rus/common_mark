@@ -86,13 +86,43 @@ module CommonMark
       end
     end
 
+    class IndentedCodeBlock
+      property content
+      property children
+
+      def initialize
+        @content = ""
+      end
+
+      def add_line(line)
+        @content += "#{strip(line)}\n"
+      end
+
+      def strip(line)
+        i = 0
+
+        while i < 4 && i < line.length
+          if line[i] == ' '
+            i += 1
+          elsif line[i] == '\t'
+            i += 1
+            break
+          else
+            break
+          end
+        end
+
+        line[i..-1].rstrip
+      end
+    end
+
     class Document
       property content
       property children
 
       def initialize
         @content = ""
-        @children = [] of Header | Paragraph | Hrule | CodeBlock
+        @children = [] of Header | Paragraph | Hrule | CodeBlock | IndentedCodeBlock
       end
     end
   end
@@ -138,7 +168,8 @@ module CommonMark
 
       # TODO: list item
       # TODO: indented code block
-
+      elsif indented_code_block?(line)
+        process_indented_code_block
       elsif accepts_line?
         add_line
         @line += 1
@@ -148,6 +179,10 @@ module CommonMark
         @current = node
         @line += 1
       end
+    end
+
+    def indented_code_block?(line)
+      line.gsub('\t', "    ").starts_with?("    ")
     end
 
     def process_fenced_code_block
@@ -164,6 +199,19 @@ module CommonMark
         @line += 1
       end
       @line += 1
+    end
+
+    def process_indented_code_block
+      node = Node::IndentedCodeBlock.new
+      node.add_line @lines[@line]
+      @root.children << node
+      @current = node
+      @line += 1
+
+      while @line < @lines.length && indented_code_block?(@lines[@line])
+        node.add_line @lines[@line]
+        @line += 1
+      end
     end
 
     def parse

@@ -28,4 +28,10 @@ class CommonMark::HTMLRenderer
     io << HTML.escape node.content.strip
     io << "\n</code></pre>"
   end
+
+  def render_node(io, node : CommonMark::Node::IndentedCodeBlock)
+    io << "<pre><code>"
+    io << HTML.escape node.content
+    io << "</code></pre>"
+  end
 end
