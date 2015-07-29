@@ -11,8 +11,12 @@ class CommonMark::HTMLRenderer
     html.chomp
   end
 
+  def h(*args)
+    HTML.escape *args
+  end
+
   def render_node(io, node : CommonMark::Node::ATXHeader | CommonMark::Node::SetextHeader)
-    io << "<h#{node.level}>#{node.content}</h#{node.level}>\n"
+    io << "<h#{node.level}>#{h node.content}</h#{node.level}>\n"
   end
 
   def render_node(io, node : CommonMark::Node::Paragraph)
@@ -21,14 +25,14 @@ class CommonMark::HTMLRenderer
     count = node.lines.size - 1
     node.lines.each_with_index do |line, i|
       if i == count
-        io << line.strip
+        io << h line.strip
       elsif line.ends_with?("  ")
-        io <<"#{line.rstrip}<br />\n"
+        io <<"#{h line.rstrip}<br />\n"
       else
-        io << "#{line.strip}\n"
+        io << "#{h line.strip}\n"
       end
     end
-    io << "</p>"
+    io << "</p>\n"
   end
 
   def render_node(io, node : CommonMark::Node::Hrule)
@@ -37,7 +41,7 @@ class CommonMark::HTMLRenderer
 
   def render_node(io, node : CommonMark::Node::FencedCodeBlock | CommonMark::Node::IndentedCodeBlock)
     io << "<pre><code>"
-    io << HTML.escape node.content
+    io << h node.content
     io << "</code></pre>"
   end
 end
