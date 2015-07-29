@@ -55,9 +55,15 @@ module CommonMark
     class Paragraph
       property content
       property children
+      property open
 
-      def initialize(line)
-        @content = line.strip
+      def initialize
+        @content = ""
+        @open = true
+      end
+
+      def add_line(line)
+        @content += "#{line}\n"
       end
     end
 
@@ -131,6 +137,7 @@ module CommonMark
     RE_HRULE = /^[ ]{0,3}((([*][ ]*){3,})|(([-][ ]*){3,})|([_][ ]*){3,})[ \t]*$/
     RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
     RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
+    RE_BLANK_LINE = /^[ \t]*$/
 
     def initialize(text)
       @root = Node::Document.new
@@ -167,21 +174,46 @@ module CommonMark
 
       # TODO: list item
       # TODO: indented code block
-      elsif indented_code_block?(line)
+      elsif indented_code_block?(line) && can_break?
         process_indented_code_block
-      elsif accepts_line?
-        add_line
-        @line += 1
       else
-        node = Node::Paragraph.new line
-        @root.children << node
-        @current = node
+        node = @current
+        case node
+        when Node::Paragraph
+          if line == "" || RE_BLANK_LINE =~ line
+            node.open = false
+          elsif node.open
+            node.add_line line
+          else
+            add_paragraph(line)
+          end
+        else
+          add_paragraph(line)
+        end
+
         @line += 1
+      end
+    end
+
+    def can_break?
+      node = @current
+      case node
+      when Node::Paragraph
+        !node.open
+      else
+        true
       end
     end
 
     def indented_code_block?(line)
       line.gsub('\t', "    ").starts_with?("    ")
+    end
+
+    def add_paragraph(line)
+      node = Node::Paragraph.new
+      node.add_line line
+      @root.children << node
+      @current = node
     end
 
     def process_fenced_code_block
@@ -218,19 +250,6 @@ module CommonMark
         process_line
       end
       @root
-    end
-
-    def add_line
-      @current.content += "\n#{@lines[@line]}"
-    end
-
-    def accepts_line?
-      case @current
-      when Node::Paragraph
-        true
-      else
-        false
-      end
     end
   end
 end
