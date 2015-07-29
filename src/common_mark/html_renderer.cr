@@ -11,7 +11,7 @@ class CommonMark::HTMLRenderer
     html.chomp
   end
 
-  def render_node(io, node : CommonMark::Node::Header)
+  def render_node(io, node : CommonMark::Node::ATXHeader | CommonMark::Node::SetextHeader)
     io << "<h#{node.level}>#{node.content}</h#{node.level}>\n"
   end
 

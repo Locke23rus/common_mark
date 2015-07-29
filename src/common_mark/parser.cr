@@ -33,14 +33,12 @@ module CommonMark
   	LAST_INLINE  = IMAGE
   end
 
-    class Header
+    class ATXHeader
       property content
       property children
       getter level
-      property setext
 
-      def initialize(@line)
-        @setext = false
+      def initialize(line)
         @level = 0
         n = line.index('#').not_nil!
         while line[n] == '#'
@@ -49,6 +47,17 @@ module CommonMark
         end
 
         @content = line.gsub /\s*\#+\s*/, ""
+      end
+    end
+
+    class SetextHeader
+      property content
+      property children
+      getter level
+
+      def initialize(line, underline)
+        @content = line.strip
+        @level = underline.lstrip[0] == '=' ? 1 : 2
       end
     end
 
@@ -120,7 +129,8 @@ module CommonMark
       property children
 
       def initialize
-        @children = [] of Header | Paragraph | Hrule | FencedCodeBlock | IndentedCodeBlock
+        @children = [] of ATXHeader | SetextHeader| Paragraph | Hrule | FencedCodeBlock |
+            IndentedCodeBlock
       end
     end
   end
@@ -131,6 +141,8 @@ module CommonMark
     RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
     RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
     RE_BLANK_LINE = /^[ \t]*$/
+    RE_SETEXT_HEADER_TEXT = /^[ ]{0,3}\S+/
+    RE_SETEXT_HEADER_LINE = /^[ ]{0,3}([=]+|[-]{2,})[ ]*$/
 
     def initialize(text)
       @root = Node::Document.new
@@ -146,7 +158,7 @@ module CommonMark
 
       # ATX header
       if RE_ATX_HEADER =~ line
-        node = Node::Header.new line
+        node = Node::ATXHeader.new line
         @root.children << node
         @current = node
         @line += 1
@@ -156,7 +168,12 @@ module CommonMark
         process_fenced_code_block
 
       # TODO: HTML block
-      # TODO: Setext header
+
+      elsif setext_header?
+        node = Node::SetextHeader.new line, next_line.not_nil!
+        @root.children << node
+        @current = node
+        @line += 2
 
       # Horizonal rule
       elsif RE_HRULE =~ line
@@ -166,24 +183,25 @@ module CommonMark
         @line += 1
 
       # TODO: list item
-      # TODO: indented code block
+
       elsif indented_code_block?(line) && can_break?
         process_indented_code_block
       else
         node = @current
         case node
         when Node::Paragraph
-          if line == "" || RE_BLANK_LINE =~ line
+          if blank_line? line
             node.open = false
           elsif node.open
             node.add_line line
           else
-            add_paragraph(line)
+            add_paragraph line
           end
         else
-          add_paragraph(line)
+          unless blank_line?(line)
+            add_paragraph line
+          end
         end
-
         @line += 1
       end
     end
@@ -196,6 +214,18 @@ module CommonMark
       else
         true
       end
+    end
+
+    def setext_header?
+      @lines[@line] =~ RE_SETEXT_HEADER_TEXT && next_line =~ RE_SETEXT_HEADER_LINE
+    end
+
+    def next_line
+      @lines[@line + 1]?
+    end
+
+    def blank_line?(line)
+      line == "" || RE_BLANK_LINE =~ line
     end
 
     def indented_code_block?(line)
@@ -232,7 +262,9 @@ module CommonMark
       @current = node
       @line += 1
 
-      while @line < @lines.length && indented_code_block?(@lines[@line])
+      while @line < @lines.length &&
+          (indented_code_block?(@lines[@line]) || blank_line?(@lines[@line]))
+
         node.add_line @lines[@line]
         @line += 1
       end
