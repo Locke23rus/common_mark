@@ -16,7 +16,19 @@ class CommonMark::HTMLRenderer
   end
 
   def render_node(io, node : CommonMark::Node::Paragraph)
-    io << "<p>#{node.content}</p>\n"
+    io << "<p>"
+
+    count = node.lines.size - 1
+    node.lines.each_with_index do |line, i|
+      if i == count
+        io << line.strip
+      elsif line.ends_with?("  ")
+        io <<"#{line.rstrip}<br />\n"
+      else
+        io << "#{line.strip}\n"
+      end
+    end
+    io << "</p>"
   end
 
   def render_node(io, node : CommonMark::Node::Hrule)

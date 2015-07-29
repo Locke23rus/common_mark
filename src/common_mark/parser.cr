@@ -53,27 +53,22 @@ module CommonMark
     end
 
     class Paragraph
-      property content
       property children
       property open
+      getter lines
 
       def initialize
-        @content = ""
+        @lines = [] of String
         @open = true
       end
 
       def add_line(line)
-        @content += "#{line}\n"
+        lines << line
       end
     end
 
     class Hrule
-      property content
       property children
-
-      def initialize
-        @content = ""
-      end
     end
 
     class FencedCodeBlock
@@ -122,11 +117,9 @@ module CommonMark
     end
 
     class Document
-      property content
       property children
 
       def initialize
-        @content = ""
         @children = [] of Header | Paragraph | Hrule | FencedCodeBlock | IndentedCodeBlock
       end
     end
