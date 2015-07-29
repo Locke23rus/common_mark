@@ -169,18 +169,19 @@ module CommonMark
 
       # TODO: HTML block
 
-      elsif setext_header?
-        node = Node::SetextHeader.new line, next_line.not_nil!
-        @root.children << node
-        @current = node
-        @line += 2
-
       # Horizonal rule
       elsif RE_HRULE =~ line
         node = Node::Hrule.new
         @root.children << node
         @current = node
         @line += 1
+
+      # Setext header
+      elsif setext_header? && can_break?
+        node = Node::SetextHeader.new line, next_line.not_nil!
+        @root.children << node
+        @current = node
+        @line += 2
 
       # TODO: list item
 
