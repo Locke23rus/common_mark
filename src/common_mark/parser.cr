@@ -41,12 +41,14 @@ module CommonMark
       def initialize(line)
         @level = 0
         n = line.index('#').not_nil!
-        while line[n] == '#'
+        size = line.length
+        while n < size && line[n] == '#'
           n += 1
           @level += 1
         end
 
-        @content = line.gsub /\s*\#+\s*/, ""
+        @content = line.gsub(Parser::RE_CLOSING_POUNDS, "").
+          gsub(Parser::RE_START_POUNDS, "")
       end
     end
 
@@ -136,7 +138,8 @@ module CommonMark
   end
 
   class Parser
-    RE_ATX_HEADER = /^\s{0,3}[#]{1,6}\s/
+    RE_START_POUNDS = /^\s{0,3}[#]{1,6}(\s+|$)/
+    RE_CLOSING_POUNDS = /\s+[#]+\s*$/
     RE_HRULE = /^[ ]{0,3}((([*][ ]*){3,})|(([-][ ]*){3,})|([_][ ]*){3,})[ \t]*$/
     RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
     RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
@@ -156,8 +159,7 @@ module CommonMark
 
       # TODO: block quote
 
-      # ATX header
-      if RE_ATX_HEADER =~ line
+      if atx_header? line
         node = Node::ATXHeader.new line
         @root.children << node
         @current = node
@@ -205,6 +207,10 @@ module CommonMark
         end
         @line += 1
       end
+    end
+
+    def atx_header?(line)
+      RE_START_POUNDS =~ line
     end
 
     def can_break?
