@@ -131,7 +131,7 @@ module CommonMark
       property children
 
       def initialize
-        @children = [] of Paragraph
+        @children = [] of ATXHeader | Paragraph
       end
     end
 
@@ -164,22 +164,21 @@ module CommonMark
     end
 
     def process_inlines(block, line)
-      node = Node::Paragraph.new
-      node.add_line line
-      block.children << node if block.is_a?(Node::Blockquote)
-      # @current = node
-      @line += 1
+      if atx_header? line
+        node = Node::ATXHeader.new line
+        block.children << node if block.is_a?(Node::Blockquote)
+        @current = node
+        @line += 1
+      else
+        process_paragraph(block, line)
+      end
     end
 
     def process_line
       line = @lines[@line]
 
       if blockquote? line
-        node = Node::Blockquote.new
-        @root.children << node
-        @current = node
-
-        process_inlines node, line.lstrip[1..-1]
+        process_blockquote
 
       elsif atx_header? line
         node = Node::ATXHeader.new line
@@ -212,22 +211,7 @@ module CommonMark
       elsif indented_code_block?(line) && can_break?
         process_indented_code_block
       else
-        node = @current
-        case node
-        when Node::Paragraph
-          if blank_line? line
-            node.open = false
-          elsif node.open
-            node.add_line line
-          else
-            add_paragraph line
-          end
-        else
-          unless blank_line?(line)
-            add_paragraph line
-          end
-        end
-        @line += 1
+        process_paragraph @root, line
       end
     end
 
@@ -265,11 +249,43 @@ module CommonMark
       line.gsub('\t', "    ").starts_with?("    ")
     end
 
-    def add_paragraph(line)
+    def add_paragraph(block, line)
       node = Node::Paragraph.new
       node.add_line line
+
+      case block
+      when Node::Document, Node::Blockquote
+        block.children << node
+      end
+      @current = node
+    end
+
+    def process_paragraph(block, line)
+      node = @current
+      case node
+      when Node::Paragraph
+        if blank_line? line
+          node.open = false
+        elsif node.open
+          node.add_line line
+        else
+          add_paragraph block, line
+        end
+      else
+        unless blank_line?(line)
+          add_paragraph block, line
+        end
+      end
+      @line += 1
+    end
+
+    def process_blockquote
+      node = Node::Blockquote.new
       @root.children << node
       @current = node
+      while @line < @lines.length && blockquote?(@lines[@line])
+        process_inlines node, @lines[@line].lstrip[1..-1]
+      end
     end
 
     def process_fenced_code_block

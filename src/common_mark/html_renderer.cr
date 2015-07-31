@@ -46,7 +46,7 @@ class CommonMark::HTMLRenderer
   end
 
   def render_node(io, node : CommonMark::Node::Blockquote)
-    io << "<blockquote>"
+    io << "<blockquote>\n"
     node.children.each do |node|
       render_node io, node
     end
