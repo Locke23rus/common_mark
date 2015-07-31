@@ -42,6 +42,14 @@ class CommonMark::HTMLRenderer
   def render_node(io, node : CommonMark::Node::FencedCodeBlock | CommonMark::Node::IndentedCodeBlock)
     io << "<pre><code>"
     io << h node.content
-    io << "</code></pre>"
+    io << "</code></pre>\n"
+  end
+
+  def render_node(io, node : CommonMark::Node::Blockquote)
+    io << "<blockquote>"
+    node.children.each do |node|
+      render_node io, node
+    end
+    io << "</blockquote>\n"
   end
 end

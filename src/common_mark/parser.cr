@@ -127,12 +127,20 @@ module CommonMark
       end
     end
 
+    class Blockquote
+      property children
+
+      def initialize
+        @children = [] of Paragraph
+      end
+    end
+
     class Document
       property children
 
       def initialize
         @children = [] of ATXHeader | SetextHeader| Paragraph | Hrule | FencedCodeBlock |
-            IndentedCodeBlock
+            IndentedCodeBlock | Blockquote
       end
     end
   end
@@ -146,6 +154,7 @@ module CommonMark
     RE_BLANK_LINE = /^[ \t]*$/
     RE_SETEXT_HEADER_TEXT = /^[ ]{0,3}\S+/
     RE_SETEXT_HEADER_LINE = /^[ ]{0,3}([=]+|[-]{2,})[ ]*$/
+    RE_BLOCKQUOTE = /^[ ]{0,3}>([ ]|$)/
 
     def initialize(text)
       @root = Node::Document.new
@@ -154,12 +163,25 @@ module CommonMark
       @line = 0
     end
 
+    def process_inlines(block, line)
+      node = Node::Paragraph.new
+      node.add_line line
+      block.children << node if block.is_a?(Node::Blockquote)
+      # @current = node
+      @line += 1
+    end
+
     def process_line
       line = @lines[@line]
 
-      # TODO: block quote
+      if blockquote? line
+        node = Node::Blockquote.new
+        @root.children << node
+        @current = node
 
-      if atx_header? line
+        process_inlines node, line.lstrip[1..-1]
+
+      elsif atx_header? line
         node = Node::ATXHeader.new line
         @root.children << node
         @current = node
@@ -207,6 +229,10 @@ module CommonMark
         end
         @line += 1
       end
+    end
+
+    def blockquote?(line)
+      line.starts_with? '>'
     end
 
     def atx_header?(line)
