@@ -315,9 +315,16 @@ module CommonMark
           process_inlines node, @lines[@line].gsub(RE_BLOCKQUOTE, "")
         else
           current_node = @current
-          if current_node.is_a?(Node::Paragraph) && current_node.open && paragraph?(block, @lines[@line])
-            current_node.add_line @lines[@line]
-            @line += 1
+          if current_node.is_a?(Node::Paragraph) && current_node.open
+            if blank_line?(@lines[@line])
+              current_node.open = false
+              @line += 1
+            elsif paragraph?(block, @lines[@line])
+              current_node.add_line @lines[@line]
+              @line += 1
+            else
+              break
+            end
           else
             break
           end
