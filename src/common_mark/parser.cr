@@ -34,6 +34,7 @@ module CommonMark
   end
 
     class ATXHeader
+      property parent
       property content
       property children
       getter level
@@ -53,6 +54,7 @@ module CommonMark
     end
 
     class SetextHeader
+      property parent
       property content
       property children
       getter level
@@ -64,6 +66,7 @@ module CommonMark
     end
 
     class Paragraph
+      property parent
       property children
       property open
       getter lines
@@ -79,10 +82,12 @@ module CommonMark
     end
 
     class Hrule
+      property parent
       property children
     end
 
     class FencedCodeBlock
+      property parent
       property content
       property children
       getter fence_char
@@ -98,6 +103,7 @@ module CommonMark
     end
 
     class IndentedCodeBlock
+      property parent
       property content
       property children
 
@@ -128,6 +134,7 @@ module CommonMark
     end
 
     class Blockquote
+      property parent
       property children
 
       def initialize
@@ -136,11 +143,13 @@ module CommonMark
     end
 
     class Document
+      property parent
       property children
 
       def initialize
         @children = [] of ATXHeader | SetextHeader| Paragraph | Hrule | FencedCodeBlock |
             IndentedCodeBlock | Blockquote
+        @parent = self
       end
     end
   end
@@ -166,7 +175,7 @@ module CommonMark
     def process_inlines(block, line)
       if atx_header? line
         add_atx_header block, line
-      elsif indented_code_block? line
+      elsif indented_code_block? block, line
         process_indented_code_block block, line
       else
         process_paragraph block, line
@@ -177,38 +186,31 @@ module CommonMark
       line = @lines[@line]
 
       if blockquote? line
-        process_blockquote
+        process_blockquote @root
       elsif atx_header? line
         add_atx_header @root, line
       elsif fenced_code_block? line
-        process_fenced_code_block
+        process_fenced_code_block @root, line
 
       # TODO: HTML block
 
       elsif horizonal_rule? line
-        node = Node::Hrule.new
-        @root.children << node
-        @current = node
-        @line += 1
+        add_horizontal_rule @root
       elsif setext_header?
-        node = Node::SetextHeader.new line, next_line.not_nil!
-        @root.children << node
-        @current = node
-        @line += 2
-
+        add_setext_header @root, line
       # TODO: list item
 
-      elsif indented_code_block? line
+      elsif indented_code_block? @root, line
         process_indented_code_block @root, line
       else
         process_paragraph @root, line
       end
     end
 
-    def paragraph?(line)
+    def paragraph?(block, line)
       return false if blockquote?(line) || atx_header?(line) || fenced_code_block?(line) || horizonal_rule?(line)
       return false if setext_header?
-      return false if indented_code_block?(line)
+      return false if indented_code_block?(block, line)
       true
     end
 
@@ -242,10 +244,10 @@ module CommonMark
       line == "" || RE_BLANK_LINE =~ line
     end
 
-    def indented_code_block?(line)
+    def indented_code_block?(block, line)
       node = @current
       return false if node.is_a?(Node::Paragraph) && node.open
-      return true if node.is_a?(Node::IndentedCodeBlock) && blank_line?(line)
+      return true if node.is_a?(Node::IndentedCodeBlock) && blank_line?(line) && node.parent == block
       line.gsub('\t', "    ").starts_with?("    ")
     end
 
@@ -261,6 +263,28 @@ module CommonMark
       append block, node
       @current = node
       @line += 1
+    end
+
+    def add_horizontal_rule(block)
+      node = Node::Hrule.new
+      append block, node
+      @current = node
+      @line += 1
+    end
+
+    def add_setext_header(block, line)
+      node = Node::SetextHeader.new line, next_line.not_nil!
+      append block, node
+      @current = node
+      @line += 2
+    end
+
+    def add_fenced_code_block(block, line)
+      node = Node::FencedCodeBlock.new line
+      append block, node
+      @current = node
+      @line += 1
+      node
     end
 
     def process_paragraph(block, line)
@@ -282,16 +306,16 @@ module CommonMark
       @line += 1
     end
 
-    def process_blockquote
+    def process_blockquote(block)
       node = Node::Blockquote.new
-      @root.children << node
+      append block, node
       @current = node
       while @line < @lines.length
         if blockquote?(@lines[@line])
           process_inlines node, @lines[@line].gsub(RE_BLOCKQUOTE, "")
         else
           current_node = @current
-          if current_node.is_a?(Node::Paragraph) && current_node.open && paragraph?(@lines[@line])
+          if current_node.is_a?(Node::Paragraph) && current_node.open && paragraph?(block, @lines[@line])
             current_node.add_line @lines[@line]
             @line += 1
           else
@@ -301,11 +325,8 @@ module CommonMark
       end
     end
 
-    def process_fenced_code_block
-      node = Node::FencedCodeBlock.new @lines[@line]
-      @root.children << node
-      @current = node
-      @line += 1
+    def process_fenced_code_block(block, line)
+      node = add_fenced_code_block block, line
 
       while @line < @lines.length &&
         !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
@@ -321,12 +342,13 @@ module CommonMark
       case block
       when Node::Document, Node::Blockquote
         block.children << node
+        node.parent = block
       end
     end
 
     def process_indented_code_block(block, line)
       node = @current
-      if node.is_a?(Node::IndentedCodeBlock)
+      if node.is_a?(Node::IndentedCodeBlock) && node.parent == block
         node.add_line line
       else
         node = Node::IndentedCodeBlock.new
