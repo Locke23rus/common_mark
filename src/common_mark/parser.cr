@@ -166,7 +166,7 @@ module CommonMark
     def process_inlines(block, line)
       if atx_header? line
         add_atx_header block, line
-      elsif can_break? && indented_code_block? line
+      elsif indented_code_block? line
         process_indented_code_block block, line
       else
         process_paragraph block, line
@@ -190,7 +190,7 @@ module CommonMark
         @root.children << node
         @current = node
         @line += 1
-      elsif can_break? && setext_header?
+      elsif setext_header?
         node = Node::SetextHeader.new line, next_line.not_nil!
         @root.children << node
         @current = node
@@ -198,7 +198,7 @@ module CommonMark
 
       # TODO: list item
 
-      elsif can_break? && indented_code_block? line
+      elsif indented_code_block? line
         process_indented_code_block @root, line
       else
         process_paragraph @root, line
@@ -207,8 +207,8 @@ module CommonMark
 
     def paragraph?(line)
       return false if blockquote?(line) || atx_header?(line) || fenced_code_block?(line) || horizonal_rule?(line)
-      return false if can_break? && setext_header?
-      return false if can_break? && indented_code_block?(line)
+      return false if setext_header?
+      return false if indented_code_block?(line)
       true
     end
 
@@ -228,17 +228,9 @@ module CommonMark
       RE_HRULE =~ line
     end
 
-    def can_break?
-      node = @current
-      case node
-      when Node::Paragraph
-        !node.open
-      else
-        true
-      end
-    end
-
     def setext_header?
+      node = @current
+      return false if node.is_a?(Node::Paragraph) && node.open
       @lines[@line] =~ RE_SETEXT_HEADER_TEXT && next_line =~ RE_SETEXT_HEADER_LINE
     end
 
@@ -251,6 +243,9 @@ module CommonMark
     end
 
     def indented_code_block?(line)
+      node = @current
+      return false if node.is_a?(Node::Paragraph) && node.open
+      return true if node.is_a?(Node::IndentedCodeBlock) && blank_line?(line)
       line.gsub('\t', "    ").starts_with?("    ")
     end
 
