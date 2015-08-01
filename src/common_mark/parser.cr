@@ -150,7 +150,7 @@ module CommonMark
       property children
 
       def initialize
-        @children = [] of ATXHeader | Paragraph | IndentedCodeBlock
+        @children = [] of ATXHeader | Paragraph | FencedCodeBlock | IndentedCodeBlock
       end
     end
 
@@ -170,8 +170,8 @@ module CommonMark
     RE_START_POUNDS = /^\s{0,3}[#]{1,6}(\s+|$)/
     RE_CLOSING_POUNDS = /\s+[#]+\s*$/
     RE_HRULE = /^[ ]{0,3}((([*][ ]*){3,})|(([-][ ]*){3,})|([_][ ]*){3,})[ \t]*$/
-    RE_START_CODE_FENCE = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
-    RE_CLOSING_CODE_FENCE = /^(?:`{3,}|~{3,})(?= *$)/
+    RE_START_CODE_FENCE = /^[ ]{0,3}(`{3,}|~{3,})[ ]*$/
+    RE_CLOSING_CODE_FENCE = /^[ ]{0,3}(`{3,}|~{3,})[ ]*$/
     RE_BLANK_LINE = /^[ \t]*$/
     RE_SETEXT_HEADER_TEXT = /^[ ]{0,3}\S+/
     RE_SETEXT_HEADER_LINE = /^[ ]{0,3}([=]+|[-]{2,})[ ]*$/
@@ -187,6 +187,8 @@ module CommonMark
     def process_inlines(block, line)
       if atx_header? line
         add_atx_header block, line
+      elsif fenced_code_block? block, line
+        process_fenced_code_block block, line
       elsif indented_code_block? block, line
         process_indented_code_block block, line
       else
@@ -197,12 +199,12 @@ module CommonMark
     def process_line
       line = @lines[@line]
 
-      if blockquote? line
+      if fenced_code_block? @root, line
+        process_fenced_code_block @root, line
+      elsif blockquote? @root, line
         process_blockquote @root
       elsif atx_header? line
         add_atx_header @root, line
-      elsif fenced_code_block? line
-        process_fenced_code_block @root, line
 
       # TODO: HTML block
 
@@ -220,15 +222,14 @@ module CommonMark
     end
 
     def paragraph?(block, line)
-      return false if blockquote?(line) || atx_header?(line) || fenced_code_block?(line) || horizonal_rule?(line)
+      return false if blockquote?(line) || atx_header?(line)
+      return false if fenced_code_block?(block, line) || horizonal_rule?(line)
       return false if setext_header?
       return false if indented_code_block?(block, line)
       true
     end
 
     def blockquote?(line)
-      node = @current
-      return false if node.is_a?(Node::FencedCodeBlock) && node.open
       line =~ RE_BLOCKQUOTE
     end
 
@@ -236,9 +237,9 @@ module CommonMark
       RE_START_POUNDS =~ line
     end
 
-    def fenced_code_block?(line)
+    def fenced_code_block?(block, line)
       node = @current
-      return true if node.is_a?(Node::FencedCodeBlock) && node.open
+      return true if node.is_a?(Node::FencedCodeBlock) && node.open && node.parent == block
       RE_START_CODE_FENCE =~ line
     end
 
@@ -350,7 +351,7 @@ module CommonMark
     def process_fenced_code_block(block, line)
       node = @current
       if node.is_a?(Node::FencedCodeBlock) && node.open
-        if line.strip == node.closing_code_fence
+        if RE_CLOSING_CODE_FENCE =~ line && line.rstrip.ends_with?(node.closing_code_fence)
           node.open = false
         else
           node.add_line line
