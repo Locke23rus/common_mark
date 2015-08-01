@@ -90,11 +90,23 @@ module CommonMark
       property parent
       property content
       property children
-      getter fence_char
+      property open
+      getter closing_code_fence
 
       def initialize(line)
-        @fence_char = line.lstrip[0]
         @content = ""
+        @open = true
+        line = line.lstrip
+        fence_char = line[0]
+        chars_count = 0
+        line.each_char do |char|
+          if char == fence_char
+            chars_count += 1
+          else
+            break
+          end
+        end
+        @closing_code_fence = fence_char.to_s * chars_count
       end
 
       def add_line(line)
@@ -215,6 +227,8 @@ module CommonMark
     end
 
     def blockquote?(line)
+      node = @current
+      return false if node.is_a?(Node::FencedCodeBlock) && node.open
       line =~ RE_BLOCKQUOTE
     end
 
@@ -223,6 +237,8 @@ module CommonMark
     end
 
     def fenced_code_block?(line)
+      node = @current
+      return true if node.is_a?(Node::FencedCodeBlock) && node.open
       RE_START_CODE_FENCE =~ line
     end
 
@@ -284,7 +300,6 @@ module CommonMark
       append block, node
       @current = node
       @line += 1
-      node
     end
 
     def process_paragraph(block, line)
@@ -333,16 +348,17 @@ module CommonMark
     end
 
     def process_fenced_code_block(block, line)
-      node = add_fenced_code_block block, line
-
-      while @line < @lines.length &&
-        !(RE_CLOSING_CODE_FENCE =~ @lines[@line] &&
-         @lines[@line].length > 0 && @lines[@line][0] == node.fence_char)
-
-        node.add_line @lines[@line]
+      node = @current
+      if node.is_a?(Node::FencedCodeBlock) && node.open
+        if line.strip == node.closing_code_fence
+          node.open = false
+        else
+          node.add_line line
+        end
         @line += 1
+      else
+        add_fenced_code_block block, line
       end
-      @line += 1
     end
 
     def append(block, node)
