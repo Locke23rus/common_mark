@@ -88,14 +88,30 @@ module CommonMark
 
     class FencedCodeBlock
       property parent
-      property content
       property children
       property open
       getter closing_code_fence
 
       def initialize(line)
-        @content = ""
         @open = true
+        @lines = [] of String
+        @indent = 0
+        @closing_code_fence = ""
+        assign_indent line
+        assign_closing_code_fence line
+      end
+
+      def assign_indent(line)
+        line.each_char do |char|
+          if char == ' '
+            @indent += 1
+          else
+            break
+          end
+        end
+      end
+
+      def assign_closing_code_fence(line)
         line = line.lstrip
         fence_char = line[0]
         chars_count = 0
@@ -110,7 +126,30 @@ module CommonMark
       end
 
       def add_line(line)
-        @content += "#{line.rstrip}\n"
+        @lines << "#{line}\n"
+      end
+
+      def content
+        stripped_lines.join
+      end
+
+      def stripped_lines
+        if @indent > 0
+          indent = " " * @indent
+          if @lines.all? { |line| line.starts_with?(indent) }
+            @lines.map { |line| line[@indent..-1] }
+          else
+            @lines.map do |line|
+              n = 0
+              while n < @indent && n < line.size && line[n] == ' '
+                n += 1
+              end
+              line[n..-1]
+            end
+          end
+        else
+          @lines
+        end
       end
     end
 
@@ -201,7 +240,7 @@ module CommonMark
 
       if fenced_code_block? @root, line
         process_fenced_code_block @root, line
-      elsif blockquote? @root, line
+      elsif blockquote? line
         process_blockquote @root
       elsif atx_header? line
         add_atx_header @root, line
