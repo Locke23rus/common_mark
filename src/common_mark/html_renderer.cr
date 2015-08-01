@@ -39,8 +39,19 @@ class CommonMark::HTMLRenderer
     io << "<hr />\n"
   end
 
-  def render_node(io, node : CommonMark::Node::FencedCodeBlock | CommonMark::Node::IndentedCodeBlock)
+  def render_node(io, node : CommonMark::Node::IndentedCodeBlock)
     io << "<pre><code>"
+    io << h node.content
+    io << "</code></pre>\n"
+  end
+
+  def render_node(io, node : CommonMark::Node::FencedCodeBlock)
+    info = node.info
+    if info.is_a?(String)
+      io << "<pre><code class=\"language-#{h info}\">"
+    else
+      io << "<pre><code>"
+    end
     io << h node.content
     io << "</code></pre>\n"
   end

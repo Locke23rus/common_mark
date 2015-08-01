@@ -90,18 +90,12 @@ module CommonMark
       property parent
       property children
       property open
-      getter closing_code_fence
+      getter info
 
       def initialize(line)
         @open = true
         @lines = [] of String
         @indent = 0
-        @closing_code_fence = ""
-        assign_indent line
-        assign_closing_code_fence line
-      end
-
-      def assign_indent(line)
         line.each_char do |char|
           if char == ' '
             @indent += 1
@@ -109,20 +103,21 @@ module CommonMark
             break
           end
         end
-      end
-
-      def assign_closing_code_fence(line)
         line = line.lstrip
-        fence_char = line[0]
-        chars_count = 0
+        @fence_char = line[0]
+        @fence_length = 0
         line.each_char do |char|
-          if char == fence_char
-            chars_count += 1
+          if char == @fence_char
+            @fence_length += 1
           else
             break
           end
         end
-        @closing_code_fence = fence_char.to_s * chars_count
+        @info = (line[@fence_length..-1].lstrip.split(/\s+/)).first?
+      end
+
+      def closing_code_fence
+        @fence_char.to_s * @fence_length
       end
 
       def add_line(line)
@@ -209,7 +204,7 @@ module CommonMark
     RE_START_POUNDS = /^\s{0,3}[#]{1,6}(\s+|$)/
     RE_CLOSING_POUNDS = /\s+[#]+\s*$/
     RE_HRULE = /^[ ]{0,3}((([*][ ]*){3,})|(([-][ ]*){3,})|([_][ ]*){3,})[ \t]*$/
-    RE_START_CODE_FENCE = /^[ ]{0,3}(`{3,}|~{3,})[ ]*$/
+    RE_START_CODE_FENCE = /^[ ]{0,3}`{3,}(?!.*`)|^~{3,}(?!.*~)/
     RE_CLOSING_CODE_FENCE = /^[ ]{0,3}(`{3,}|~{3,})[ ]*$/
     RE_BLANK_LINE = /^[ \t]*$/
     RE_SETEXT_HEADER_TEXT = /^[ ]{0,3}\S+/
