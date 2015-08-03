@@ -154,11 +154,15 @@ module CommonMark
       property children
 
       def initialize
-        @content = ""
+        @lines = [] of String
+
       end
 
       def add_line(line)
-        @content += "#{strip(line)}\n"
+        line = strip(line)
+        # drop preceding blank lines
+        return if @lines.empty? && line.empty?
+        @lines << "#{line}\n"
       end
 
       def strip(line)
@@ -175,7 +179,20 @@ module CommonMark
           end
         end
 
-        line[i..-1].rstrip
+        line[i..-1]
+      end
+
+      def content
+        # drop following blank lines
+        n = @lines.size - 1
+        while n >= 0 && @lines[n] == "\n"
+          n -= 1
+        end
+        if n < 0
+          ""
+        else
+          @lines[0..n].join
+        end
       end
     end
 
